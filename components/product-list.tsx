@@ -63,10 +63,10 @@ export function ProductList() {
     sortBy: 'votes',
   })
 
-  const { data: products, mutate: mutateProducts } = useSWR<Product[]>('products', fetcher)
-  const { data: stores } = useSWR<Store[]>('stores', fetcher)
-  const { data: categories } = useSWR<Category[]>('categories', fetcher)
-  const { data: subcategories } = useSWR<Subcategory[]>('subcategories', fetcher)
+  const { data: products, mutate: mutateProducts } = useSWR('products', fetcher)
+  const { data: stores } = useSWR('stores', fetcher)
+  const { data: categories } = useSWR('categories', fetcher)
+  const { data: subcategories } = useSWR('subcategories', fetcher)
 
   // Load voted products from localStorage
   useEffect(() => {

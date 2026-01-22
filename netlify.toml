@@ -86,9 +86,6 @@
 
 # Configuración para funciones de Netlify (si usas API routes)
 [functions]
-  # Node version para funciones
-  node_version = "20"
-
   # Configuración de timeout (en segundos)
   timeout = 30
 
