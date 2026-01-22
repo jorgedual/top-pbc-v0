@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronUp } from 'lucide-react'
+import { ChevronUp, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Product } from '@/lib/types'
@@ -34,13 +34,13 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
   const storeColor = storeColors[product.store?.name] || '#6B7280'
 
   return (
-    <div className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-md">
+    <div className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-md cursor-pointer">
       {/* Vote Button */}
       <div className="flex flex-col items-center gap-1">
         <Button
           variant={hasVoted ? 'default' : 'outline'}
           size="sm"
-          className="flex h-auto min-w-14 flex-col gap-0.5 px-3 py-2"
+          className="flex h-auto min-w-14 flex-col gap-0.5 px-3 py-2 cursor-pointer"
           onClick={() => onVote(product.id)}
           disabled={isVoting}
         >
@@ -49,31 +49,41 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
         </Button>
       </div>
 
+      {/* Product Image */}
+      <div className="shrink-0">
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="size-20 rounded-lg object-cover bg-muted"
+          />
+        ) : (
+          <div className="size-20 rounded-lg bg-muted flex items-center justify-center">
+            <Package className="size-8 text-muted-foreground/50" />
+          </div>
+        )}
+      </div>
+
       {/* Product Info */}
       <div className="flex flex-1 flex-col gap-2">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
-              {product.name}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-              {product.description}
-            </p>
-          </div>
-          <div className="text-right">
-            <span className="text-xl font-bold text-emerald-600">
-              {formatPrice(product.price)}
-            </span>
-          </div>
+        <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+          {product.name}
+        </h3>
+
+        {/* Price */}
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold text-emerald-600">
+            {formatPrice(product.price)}
+          </span>
         </div>
 
         {/* Tags */}
-        <div className="flex flex-wrap items-center gap-2 mt-2">
+        <div className="flex flex-wrap items-center gap-2">
           {product.store && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className="text-xs"
-              style={{ 
+              style={{
                 backgroundColor: `${storeColor}20`,
                 color: storeColor,
                 borderColor: storeColor

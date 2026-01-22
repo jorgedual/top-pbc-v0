@@ -20,6 +20,7 @@ export interface Product {
   name: string
   description: string
   price: number
+  image_url: string | null
   store_id: string
   category_id: string
   subcategory_id: string | null

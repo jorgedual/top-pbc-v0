@@ -5,7 +5,7 @@ import useSWR from 'swr'
 import { Search, TrendingUp, Package } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ProductCard } from '@/components/product-card'
-import { FilterSidebar } from '@/components/filter-sidebar'
+import { FilterBar } from '@/components/filter-bar'
 import { createClient } from '@/lib/supabase/client'
 import type { Product, Store, Category, Subcategory, Filters } from '@/lib/types'
 
@@ -151,18 +151,19 @@ export function ProductList() {
     })
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <FilterSidebar
-        stores={stores || []}
-        categories={categories || []}
-        subcategories={subcategories || []}
-        filters={filters}
-        onFiltersChange={setFilters}
-      />
+    <div className="space-y-6">
+      <main className="max-w-5xl mx-auto">
+        {/* Filters Bar */}
+        <FilterBar
+          stores={stores || []}
+          categories={categories || []}
+          subcategories={subcategories || []}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
 
-      <main className="flex-1">
         {/* Search Bar */}
-        <div className="relative mb-6">
+        <div className="relative mt-4 mb-6">
           <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"

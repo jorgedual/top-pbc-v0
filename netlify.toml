@@ -1,0 +1,100 @@
+# Configuración de Netlify para Next.js
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # Comando de build para Next.js
+  command = "pnpm build"
+
+  # Directorio de publicación para Next.js
+  publish = ".next"
+
+  # Variables de entorno durante el build
+  [build.environment]
+    NODE_VERSION = "20"
+    NPM_FLAGS = "--version"
+    # Usar pnpm como package manager
+    NETLIFY_USE_PNPM = "true"
+
+# Plugins de Netlify
+[[plugins]]
+  # Plugin de Next.js para Netlify
+  package = "@netlify/plugin-nextjs"
+
+# Headers personalizados para optimización
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Seguridad
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Cache para assets estáticos
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    # Cache agresivo para archivos estáticos de Next.js
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    # Cache para archivos en /public/static
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    # Cache para JavaScript
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    # Cache para CSS
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    # Cache para imágenes
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.webp"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Redirects necesarios para Next.js
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Configuración para funciones de Netlify (si usas API routes)
+[functions]
+  # Node version para funciones
+  node_version = "20"
+
+  # Configuración de timeout (en segundos)
+  timeout = 30
+
+# Configuración de dev para netlify dev (opcional)
+[dev]
+  command = "pnpm dev"
+  port = 3000
+  targetPort = 3000
+  autoLaunch = false
