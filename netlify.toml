@@ -84,11 +84,6 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Configuración para funciones de Netlify (si usas API routes)
-[functions]
-  # Configuración de timeout (en segundos)
-  timeout = 30
-
 # Configuración de dev para netlify dev (opcional)
 [dev]
   command = "pnpm dev"
