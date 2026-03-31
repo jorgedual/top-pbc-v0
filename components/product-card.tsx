@@ -1,8 +1,9 @@
 'use client'
 
-import { ChevronUp, Package } from 'lucide-react'
+import { ChevronUp, Package, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CommentsSection } from '@/components/comments-section'
 import type { Product } from '@/lib/types'
 
 interface ProductCardProps {
@@ -79,6 +80,12 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
 
         {/* Tags */}
         <div className="flex flex-wrap items-center gap-2">
+          {product.comments_count > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MessageSquare className="size-3" />
+              <span>{product.comments_count}</span>
+            </div>
+          )}
           {product.store && (
             <Badge
               variant="secondary"
@@ -103,6 +110,8 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
             </Badge>
           )}
         </div>
+
+        <CommentsSection productId={product.id} commentsCount={product.comments_count || 0} />
       </div>
     </div>
   )

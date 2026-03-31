@@ -6,14 +6,14 @@ import { Search, TrendingUp, Package } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ProductCard } from '@/components/product-card'
 import { FilterBar } from '@/components/filter-bar'
+import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
 import type { Product, Store, Category, Subcategory, Filters } from '@/lib/types'
 
 const fetcher = async (url: string) => {
   const supabase = createClient()
-  
+
   if (url === 'products') {
-    console.log('[v0] Fetching products...')
     const { data, error } = await supabase
       .from('products')
       .select(`
@@ -23,34 +23,34 @@ const fetcher = async (url: string) => {
         subcategory:subcategories(*)
       `)
       .order('votes', { ascending: false })
-    
-    console.log('[v0] Products result:', { data, error })
+
     if (error) throw error
     return data
   }
-  
+
   if (url === 'stores') {
     const { data, error } = await supabase.from('stores').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   if (url === 'categories') {
     const { data, error } = await supabase.from('categories').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   if (url === 'subcategories') {
     const { data, error } = await supabase.from('subcategories').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   return null
 }
 
 export function ProductList() {
+  const { user } = useUser()
   const [searchQuery, setSearchQuery] = useState('')
   const [votedProducts, setVotedProducts] = useState<Set<string>>(new Set())
   const [votingId, setVotingId] = useState<string | null>(null)
@@ -68,53 +68,86 @@ export function ProductList() {
   const { data: categories } = useSWR('categories', fetcher)
   const { data: subcategories } = useSWR('subcategories', fetcher)
 
-  // Load voted products from localStorage
+  // Load voted products from Supabase
   useEffect(() => {
-    const stored = localStorage.getItem('votedProducts')
-    if (stored) {
-      setVotedProducts(new Set(JSON.parse(stored)))
+    const fetchVotes = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('votes')
+        .select('product_id')
+        .eq('user_id', user?.id || '')
+
+      if (data) {
+        const votedIds = data.map((v) => v.product_id)
+        setVotedProducts(new Set(votedIds))
+      }
     }
-  }, [])
+
+    if (user) {
+      fetchVotes()
+    }
+  }, [user])
 
   const handleVote = useCallback(async (productId: string) => {
     if (votingId) return
-    
+
     setVotingId(productId)
     const supabase = createClient()
     const hasVoted = votedProducts.has(productId)
-    
+
     try {
       if (hasVoted) {
         // Remove vote
-        await supabase
-          .from('products')
-          .update({ votes: (products?.find(p => p.id === productId)?.votes || 1) - 1 })
-          .eq('id', productId)
-        
-        const newVoted = new Set(votedProducts)
-        newVoted.delete(productId)
-        setVotedProducts(newVoted)
-        localStorage.setItem('votedProducts', JSON.stringify([...newVoted]))
+        if (user) {
+          const { error } = await supabase
+            .from('votes')
+            .delete()
+            .eq('product_id', productId)
+            .eq('user_id', user.id)
+
+          if (error) {
+            throw error
+          }
+
+          const newVoted = new Set(votedProducts)
+          newVoted.delete(productId)
+          setVotedProducts(newVoted)
+          mutateProducts()
+        }
       } else {
         // Add vote
-        await supabase
-          .from('products')
-          .update({ votes: (products?.find(p => p.id === productId)?.votes || 0) + 1 })
-          .eq('id', productId)
-        
-        const newVoted = new Set(votedProducts)
-        newVoted.add(productId)
-        setVotedProducts(newVoted)
-        localStorage.setItem('votedProducts', JSON.stringify([...newVoted]))
+        if (user) {
+          const { error } = await supabase
+            .from('votes')
+            .insert({
+              product_id: productId,
+              user_id: user.id,
+            })
+
+          if (error) {
+            if (error.message.includes('Ya has votado')) {
+              // Already voted, update local state
+              const newVoted = new Set(votedProducts)
+              newVoted.add(productId)
+              setVotedProducts(newVoted)
+            }
+          } else {
+            const newVoted = new Set(votedProducts)
+            newVoted.add(productId)
+            setVotedProducts(newVoted)
+            mutateProducts()
+          }
+        } else {
+          // Redirect to login
+          window.location.href = '/auth/login'
+          setVotingId(null)
+          return
+        }
       }
-      
-      mutateProducts()
-    } catch (error) {
-      console.error('Error voting:', error)
     } finally {
       setVotingId(null)
     }
-  }, [votingId, votedProducts, products, mutateProducts])
+  }, [votingId, votedProducts, products, mutateProducts, user])
 
   // Filter and sort products
   const filteredProducts = products
@@ -123,7 +156,7 @@ export function ProductList() {
         const query = searchQuery.toLowerCase()
         if (
           !product.name.toLowerCase().includes(query) &&
-          !product.description.toLowerCase().includes(query)
+          !(product.description?.toLowerCase().includes(query))
         ) {
           return false
         }

@@ -25,6 +25,7 @@ export interface Product {
   category_id: string
   subcategory_id: string | null
   votes: number
+  comments_count?: number
   created_at: string
   store: Store
   category: Category
