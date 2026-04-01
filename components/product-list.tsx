@@ -6,14 +6,14 @@ import { Search, TrendingUp, Package } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ProductCard } from '@/components/product-card'
 import { FilterBar } from '@/components/filter-bar'
+import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
-import type { Product, Store, Category, Subcategory, Filters } from '@/lib/types'
+import type { Product, Store, Category, Subcategory, Filters, ReactionType, ReactionCounts } from '@/lib/types'
 
 const fetcher = async (url: string) => {
   const supabase = createClient()
-  
+
   if (url === 'products') {
-    console.log('[v0] Fetching products...')
     const { data, error } = await supabase
       .from('products')
       .select(`
@@ -22,45 +22,46 @@ const fetcher = async (url: string) => {
         category:categories(*),
         subcategory:subcategories(*)
       `)
-      .order('votes', { ascending: false })
-    
-    console.log('[v0] Products result:', { data, error })
+      .order('reaction_score', { ascending: false })
+
     if (error) throw error
     return data
   }
-  
+
   if (url === 'stores') {
     const { data, error } = await supabase.from('stores').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   if (url === 'categories') {
     const { data, error } = await supabase.from('categories').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   if (url === 'subcategories') {
     const { data, error } = await supabase.from('subcategories').select('*').order('name')
     if (error) throw error
     return data
   }
-  
+
   return null
 }
 
 export function ProductList() {
+  const { user } = useUser()
   const [searchQuery, setSearchQuery] = useState('')
-  const [votedProducts, setVotedProducts] = useState<Set<string>>(new Set())
-  const [votingId, setVotingId] = useState<string | null>(null)
+  const [reactingId, setReactingId] = useState<string | null>(null)
+  const [userReactions, setUserReactions] = useState<Map<string, ReactionType>>(new Map())
+  const [reactionsCounts, setReactionsCounts] = useState<Map<string, ReactionCounts>>(new Map())
   const [filters, setFilters] = useState<Filters>({
     store: null,
     category: null,
     subcategory: null,
     minPrice: null,
     maxPrice: null,
-    sortBy: 'votes',
+    sortBy: 'reaction_score',
   })
 
   const { data: products, mutate: mutateProducts } = useSWR('products', fetcher)
@@ -68,53 +69,171 @@ export function ProductList() {
   const { data: categories } = useSWR('categories', fetcher)
   const { data: subcategories } = useSWR('subcategories', fetcher)
 
-  // Load voted products from localStorage
+  // Load reactions from Supabase
   useEffect(() => {
-    const stored = localStorage.getItem('votedProducts')
-    if (stored) {
-      setVotedProducts(new Set(JSON.parse(stored)))
-    }
-  }, [])
+    const fetchReactions = async () => {
+      const supabase = createClient()
 
-  const handleVote = useCallback(async (productId: string) => {
-    if (votingId) return
-    
-    setVotingId(productId)
-    const supabase = createClient()
-    const hasVoted = votedProducts.has(productId)
-    
-    try {
-      if (hasVoted) {
-        // Remove vote
-        await supabase
-          .from('products')
-          .update({ votes: (products?.find(p => p.id === productId)?.votes || 1) - 1 })
-          .eq('id', productId)
-        
-        const newVoted = new Set(votedProducts)
-        newVoted.delete(productId)
-        setVotedProducts(newVoted)
-        localStorage.setItem('votedProducts', JSON.stringify([...newVoted]))
-      } else {
-        // Add vote
-        await supabase
-          .from('products')
-          .update({ votes: (products?.find(p => p.id === productId)?.votes || 0) + 1 })
-          .eq('id', productId)
-        
-        const newVoted = new Set(votedProducts)
-        newVoted.add(productId)
-        setVotedProducts(newVoted)
-        localStorage.setItem('votedProducts', JSON.stringify([...newVoted]))
+      // Fetch all reaction counts (always, regardless of auth)
+      const { data: countsData } = await supabase
+        .from('reactions')
+        .select('product_id, reaction_type')
+
+      if (countsData) {
+        const countsMap = new Map<string, ReactionCounts>()
+        countsData.forEach((r) => {
+          const existing = countsMap.get(r.product_id) || {
+            like_count: 0,
+            love_count: 0,
+            angry_count: 0,
+            neutral_count: 0,
+            total_reactions: 0,
+          }
+          existing.total_reactions++
+          switch (r.reaction_type) {
+            case 'like':
+              existing.like_count++
+              break
+            case 'love':
+              existing.love_count++
+              break
+            case 'angry':
+              existing.angry_count++
+              break
+            case 'neutral':
+              existing.neutral_count++
+              break
+          }
+          countsMap.set(r.product_id, existing)
+        })
+        setReactionsCounts(countsMap)
       }
-      
+
+      // Fetch user's reactions only if logged in
+      if (user) {
+        const { data: userReactionsData } = await supabase
+          .from('reactions')
+          .select('product_id, reaction_type')
+          .eq('user_id', user.id)
+
+        if (userReactionsData) {
+          const reactionsMap = new Map<string, ReactionType>()
+          userReactionsData.forEach((r) => {
+            reactionsMap.set(r.product_id, r.reaction_type as ReactionType)
+          })
+          setUserReactions(reactionsMap)
+        }
+      } else {
+        // Clear user reactions when logged out
+        setUserReactions(new Map())
+      }
+    }
+
+    fetchReactions()
+  }, [user])
+
+  const handleReact = useCallback(async (productId: string, reactionType: ReactionType) => {
+    if (reactingId) return
+    if (!user) {
+      window.location.href = '/auth/login'
+      return
+    }
+
+    setReactingId(productId)
+    const supabase = createClient()
+    const existingReaction = userReactions.get(productId)
+
+    try {
+      if (existingReaction === reactionType) {
+        // Remove reaction (clicking same reaction again)
+        const { error } = await supabase
+          .from('reactions')
+          .delete()
+          .eq('product_id', productId)
+          .eq('user_id', user.id)
+
+        if (error) throw error
+
+        const newUserReactions = new Map(userReactions)
+        newUserReactions.delete(productId)
+        setUserReactions(newUserReactions)
+      } else {
+        // Add or update reaction
+        const { error } = await supabase
+          .from('reactions')
+          .upsert({
+            product_id: productId,
+            user_id: user.id,
+            reaction_type: reactionType,
+          }, {
+            onConflict: 'product_id,user_id'
+          })
+
+        if (error) throw error
+
+        const newUserReactions = new Map(userReactions)
+        newUserReactions.set(productId, reactionType)
+        setUserReactions(newUserReactions)
+      }
+
+      // Update local counts
+      const newCounts = new Map(reactionsCounts)
+      const counts = newCounts.get(productId) || {
+        like_count: 0,
+        love_count: 0,
+        angry_count: 0,
+        neutral_count: 0,
+        total_reactions: 0,
+      }
+
+      // Remove old reaction from counts
+      if (existingReaction) {
+        counts.total_reactions--
+        switch (existingReaction) {
+          case 'like':
+            counts.like_count--
+            break
+          case 'love':
+            counts.love_count--
+            break
+          case 'angry':
+            counts.angry_count--
+            break
+          case 'neutral':
+            counts.neutral_count--
+            break
+        }
+      }
+
+      // Add new reaction to counts (if not removing)
+      if (existingReaction !== reactionType) {
+        counts.total_reactions++
+        switch (reactionType) {
+          case 'like':
+            counts.like_count++
+            break
+          case 'love':
+            counts.love_count++
+            break
+          case 'angry':
+            counts.angry_count++
+            break
+          case 'neutral':
+            counts.neutral_count++
+            break
+        }
+      }
+
+      newCounts.set(productId, counts)
+      setReactionsCounts(newCounts)
+
       mutateProducts()
     } catch (error) {
-      console.error('Error voting:', error)
+      console.error('Error handling reaction:', error)
     } finally {
-      setVotingId(null)
+      setReactingId(null)
     }
-  }, [votingId, votedProducts, products, mutateProducts])
+  }, [reactingId, userReactions, reactionsCounts, user, mutateProducts])
 
   // Filter and sort products
   const filteredProducts = products
@@ -123,7 +242,7 @@ export function ProductList() {
         const query = searchQuery.toLowerCase()
         if (
           !product.name.toLowerCase().includes(query) &&
-          !product.description.toLowerCase().includes(query)
+          !(product.description?.toLowerCase().includes(query))
         ) {
           return false
         }
@@ -137,8 +256,8 @@ export function ProductList() {
     })
     .sort((a, b) => {
       switch (filters.sortBy) {
-        case 'votes':
-          return b.votes - a.votes
+        case 'reaction_score':
+          return b.reaction_score - a.reaction_score
         case 'newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         case 'price_asc':
@@ -149,6 +268,9 @@ export function ProductList() {
           return 0
       }
     })
+
+  const totalScore = products?.reduce((acc, p) => acc + (p.reaction_score || 0), 0) || 0
+  const totalReactions = Array.from(reactionsCounts.values()).reduce((acc, r) => acc + r.total_reactions, 0)
 
   return (
     <div className="space-y-6">
@@ -182,10 +304,14 @@ export function ProductList() {
           </div>
           <div className="flex items-center gap-1.5">
             <TrendingUp className="size-4" />
-            <span>
-              {products?.reduce((acc, p) => acc + p.votes, 0) || 0} votos totales
-            </span>
+            <span>{totalScore} puntos de reacción</span>
           </div>
+          {totalReactions > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span>❤️</span>
+              <span>{totalReactions} reacciones totales</span>
+            </div>
+          )}
         </div>
 
         {/* Products List */}
@@ -209,13 +335,15 @@ export function ProductList() {
               </p>
             </div>
           ) : (
-            filteredProducts.map((product) => (
+            filteredProducts.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}
-                onVote={handleVote}
-                isVoting={votingId === product.id}
-                hasVoted={votedProducts.has(product.id)}
+                rank={index + 1}
+                onReact={handleReact}
+                isReacting={reactingId === product.id}
+                reactions={reactionsCounts.get(product.id)}
+                userReaction={userReactions.get(product.id)}
               />
             ))
           )}

@@ -63,7 +63,7 @@ export function FilterSidebar({
       subcategory: null,
       minPrice: null,
       maxPrice: null,
-      sortBy: 'votes',
+      sortBy: 'reaction_score',
     })
   }
 
@@ -73,7 +73,7 @@ export function FilterSidebar({
     filters.subcategory ||
     filters.minPrice ||
     filters.maxPrice ||
-    filters.sortBy !== 'votes'
+    filters.sortBy !== 'reaction_score'
 
   return (
     <aside className="w-full lg:w-72 shrink-0">
@@ -276,7 +276,7 @@ export function FilterSidebar({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="votes">Mas votados</SelectItem>
+                  <SelectItem value="reaction_score">Mas populares ❤️</SelectItem>
                   <SelectItem value="newest">Mas recientes</SelectItem>
                   <SelectItem value="price_asc">Precio: menor a mayor</SelectItem>
                   <SelectItem value="price_desc">Precio: mayor a menor</SelectItem>

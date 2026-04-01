@@ -6,10 +6,8 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        storage: window.localStorage,
         storageKey: 'supabase-auth-token',
-        persistSession: true,
-        autoRefreshToken: true,
+        flowType: 'pkce',
       },
     }
   )

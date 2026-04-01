@@ -58,7 +58,7 @@ export function FilterBar({
       subcategory: null,
       minPrice: null,
       maxPrice: null,
-      sortBy: 'votes',
+      sortBy: 'reaction_score',
     })
   }
 
@@ -68,7 +68,7 @@ export function FilterBar({
     filters.subcategory ||
     filters.minPrice ||
     filters.maxPrice ||
-    filters.sortBy !== 'votes'
+    filters.sortBy !== 'reaction_score'
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -229,7 +229,7 @@ export function FilterBar({
               <Label className="text-sm font-medium">Ordenar por</Label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'votes', label: 'Más votados' },
+                  { value: 'reaction_score', label: 'Más populares ❤️' },
                   { value: 'newest', label: 'Más recientes' },
                   { value: 'price_asc', label: 'Precio: menor a mayor' },
                   { value: 'price_desc', label: 'Precio: mayor a menor' },
