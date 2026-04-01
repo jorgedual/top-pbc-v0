@@ -1,16 +1,19 @@
 'use client'
 
-import { ChevronUp, Package, MessageSquare } from 'lucide-react'
+import { Package, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { ReactionsBar } from '@/components/reactions-bar'
 import { CommentsSection } from '@/components/comments-section'
-import type { Product } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import type { Product, ReactionType, ReactionCounts } from '@/lib/types'
 
 interface ProductCardProps {
   product: Product
-  onVote: (productId: string) => void
-  isVoting?: boolean
-  hasVoted?: boolean
+  rank?: number
+  onReact: (productId: string, reactionType: ReactionType) => void
+  isReacting?: boolean
+  reactions?: ReactionCounts
+  userReaction?: ReactionType
 }
 
 // Colores predefinidos para tiendas
@@ -22,7 +25,15 @@ const storeColors: Record<string, string> = {
   'Tiendas 3B': '#0066B3',
 }
 
-export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCardProps) {
+const defaultReactions: ReactionCounts = {
+  like_count: 0,
+  love_count: 0,
+  angry_count: 0,
+  neutral_count: 0,
+  total_reactions: 0,
+}
+
+export function ProductCard({ product, rank, onReact, isReacting, reactions = defaultReactions, userReaction }: ProductCardProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -34,24 +45,36 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
 
   const storeColor = storeColors[product.store?.name] || '#6B7280'
 
-  return (
-    <div className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-md cursor-pointer">
-      {/* Vote Button */}
-      <div className="flex flex-col items-center gap-1">
-        <Button
-          variant={hasVoted ? 'default' : 'outline'}
-          size="sm"
-          className="flex h-auto min-w-14 flex-col gap-0.5 px-3 py-2 cursor-pointer"
-          onClick={() => onVote(product.id)}
-          disabled={isVoting}
-        >
-          <ChevronUp className="size-4" />
-          <span className="text-sm font-semibold">{product.votes}</span>
-        </Button>
-      </div>
+  const handleReact = (reactionType: ReactionType) => {
+    onReact(product.id, reactionType)
+  }
 
-      {/* Product Image */}
-      <div className="shrink-0">
+  return (
+    <div className="group relative flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20 hover:shadow-md">
+      {/* Rank Badge - Top 3 get special styling */}
+      {rank && (
+        <div className={cn(
+          'absolute -top-2 -left-2 sm:left-2 sm:top-2 z-10',
+          'flex items-center justify-center',
+          'w-7 h-7 sm:w-8 sm:h-8',
+          'rounded-full',
+          'text-sm sm:text-base font-bold',
+          'shadow-md',
+          rank === 1 && 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-950 ring-2 ring-yellow-300',
+          rank === 2 && 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700 ring-2 ring-gray-200',
+          rank === 3 && 'bg-gradient-to-br from-amber-600 to-amber-800 text-amber-50 ring-2 ring-amber-400',
+          rank > 3 && 'bg-muted text-muted-foreground'
+        )}>
+          {rank <= 3 ? (
+            <span>{rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}</span>
+          ) : (
+            <span>#{rank}</span>
+          )}
+        </div>
+      )}
+
+      {/* Product Image - Hidden on mobile */}
+      <div className="shrink-0 hidden sm:block">
         {product.image_url ? (
           <img
             src={product.image_url}
@@ -66,14 +89,14 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
       </div>
 
       {/* Product Info */}
-      <div className="flex flex-1 flex-col gap-2">
-        <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+      <div className="flex flex-1 flex-col gap-2 sm:gap-2">
+        <h3 className="text-base sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
           {product.name}
         </h3>
 
         {/* Price */}
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-emerald-600">
+          <span className="text-base sm:text-lg font-bold text-emerald-600">
             {formatPrice(product.price)}
           </span>
         </div>
@@ -111,7 +134,28 @@ export function ProductCard({ product, onVote, isVoting, hasVoted }: ProductCard
           )}
         </div>
 
+        {/* Reactions - Mobile only, below tags */}
+        <div className="flex sm:hidden">
+          <ReactionsBar
+            reactions={reactions}
+            userReaction={userReaction}
+            onReact={handleReact}
+            disabled={isReacting}
+            compact
+          />
+        </div>
+
         <CommentsSection productId={product.id} commentsCount={product.comments_count || 0} />
+      </div>
+
+      {/* Reactions Bar - Desktop only */}
+      <div className="hidden sm:flex flex-col items-center gap-1 shrink-0">
+        <ReactionsBar
+          reactions={reactions}
+          userReaction={userReaction}
+          onReact={handleReact}
+          disabled={isReacting}
+        />
       </div>
     </div>
   )
